@@ -1,0 +1,44 @@
+name: CI/CD for Wisecow Application
+
+on:
+  push:
+    branches:
+      - main  
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push Docker image
+        id: docker_build
+        uses: docker/build-push-action@v2
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: your-docker-username/wisecow:latest
+
+      - name: Deploy to Kubernetes
+        if: success()
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.K8S_HOST }}
+          username: ${{ secrets.K8S_USERNAME }}
+          key: ${{ secrets.K8S_PRIVATE_KEY }}
+          port: ${{ secrets.K8S_PORT }}
+          script: |
+            kubectl apply -f deployment.yaml
+            kubectl apply -f service.yaml
